@@ -13,8 +13,10 @@ app.get('/', (req, res) => {
   res.send('Hello World!');
 });
 
-// MongoDB configuration
-const uri = "mongodb+srv://mern-book-store:sanjaiy2006@cluster0.dmkqw.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
+// MongoDB URI
+const uri = "mongodb+srv://testuser:test123@mern-book-store.2zr2zme.mongodb.net/?retryWrites=true&w=majority&appName=mern-book-store";
+
+// Create MongoClient instance
 const client = new MongoClient(uri, {
   serverApi: {
     version: ServerApiVersion.v1,
@@ -23,86 +25,72 @@ const client = new MongoClient(uri, {
   }
 });
 
-// Asynchronous function to connect to MongoDB
-async function connectToMongoDB() {
+// Connect and define routes
+async function run() {
   try {
     await client.connect();
     const bookCollection = client.db("BookInventory").collection("books");
 
-    //insert a book to the db : post method
-    app.post("/upload-book",async(req,res)=>{
+    console.log("✅ Connected to MongoDB");
+
+    // Upload a book
+    app.post("/upload-book", async (req, res) => {
       const data = req.body;
       const result = await bookCollection.insertOne(data);
       res.send(result);
-    })
+    });
 
-    //get all books from the databse
-    // app.get("/all-books",async(req,res) => {
-    //   const books = bookCollection.find();
-    //   const result = await books.toArray();
-    //   res.send(result);
-    // })
+    // Get all books or by category
+    app.get("/all-books", async (req, res) => {
+      let query = {};
+      if (req.query?.category) {
+        query = { category: req.query.category };
+      }
+      const result = await bookCollection.find(query).toArray();
+      res.send(result);
+    });
 
-    //update book data: patch or update methods
-    app.patch("/book/:id",async(req,res) => {
+    // Get single book by ID
+    app.get("/book/:id", async (req, res) => {
       const id = req.params.id;
-      //console.log(id);
+      const result = await bookCollection.findOne({ _id: new ObjectId(id) });
+      res.send(result);
+    });
+
+    // Update book by ID
+    app.patch("/book/:id", async (req, res) => {
+      const id = req.params.id;
       const updateBookData = req.body;
-      const filter = {_id : new ObjectId(id)};
-      const options = {upsert : true};
+      const filter = { _id: new ObjectId(id) };
+      const options = { upsert: true };
 
       const updateDoc = {
         $set: {
           ...updateBookData
         }
-      }
+      };
 
-      //update
-      const result = await bookCollection.updateOne(filter,updateDoc,options);
-
-    })
-
-    //delete a book data 
-    app.delete("/book/:id",async(req,res) => {
-      const id  =req.params.id;
-      const filter = {_id : new ObjectId(id)};
-      const result = await bookCollection.deleteOne(filter);
+      const result = await bookCollection.updateOne(filter, updateDoc, options);
       res.send(result);
-    }) 
+    });
 
-    //find category
-    app.get("/all-books",async(req,res) => {
-      let query = {};
-      if(req.query?.category){
-        query = {category : req.query.category};
-      }
-      const result = await bookCollection.find(query).toArray();
-      res.send(result);
-    })
-
-    //to get single book data
-    app.get("/book/:id",async(req,res) => {
+    // Delete book by ID
+    app.delete("/book/:id", async (req, res) => {
       const id = req.params.id;
-      const filter = {_id: new ObjectId(id)};
-      const result = await bookCollection.findOne(filter);
+      const result = await bookCollection.deleteOne({ _id: new ObjectId(id) });
       res.send(result);
-    })
+    });
 
-    await client.db("admin").command({ ping: 1 });
-    console.log("Connected to MongoDB successfully!");
-  } catch (error) {
-    console.error("Failed to connect to MongoDB:", error.message);
-    process.exit(1); // Exit the process with failure
+  } catch (err) {
+    console.error("❌ MongoDB connection failed:", err.message);
+    process.exit(1); // Exit on failure
   }
 }
 
-// Call the MongoDB connection function
-connectToMongoDB();
+run();
 
-// Define the port
+// Server listen
 const port = process.env.PORT || 5000;
-
-// Start the server
 app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
+  console.log(`🚀 Server is running on port ${port}`);
 });
